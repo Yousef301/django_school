@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status, viewsets
 from marshmallow import ValidationError
 from sqlalchemy import func, and_
+from .compnents import *
 from .schemas import *
 
 school_schema = SchoolSchema()
@@ -12,22 +13,21 @@ course_schema = CourseSchema()
 
 class SchoolViewSet(viewsets.ViewSet):
     def list(self, request):
-        schools = session.query(School).all()
+        schools = SchoolQueries().list_schools()
         result = school_schema.dump(schools, many=True)
         return Response(result)
 
     def create(self, request):
         try:
             school = school_schema.load(request.data, session=session)
-            session.add(school)
-            session.commit()
+            SchoolQueries().add_school(school)
             return Response(request.data, status=status.HTTP_201_CREATED)
 
         except ValidationError as err:
             return Response(err.messages, status=status.HTTP_400_BAD_REQUEST)
 
     def retrieve(self, request, pk=None):
-        school = session.get(School, pk)
+        school = SchoolQueries().school(pk)
         if school:
             result = school_schema.dump(school)
             return Response(result)
@@ -35,11 +35,11 @@ class SchoolViewSet(viewsets.ViewSet):
         return Response(status=status.HTTP_404_NOT_FOUND)
 
     def update(self, request, pk=None):
-        school = session.get(School, pk)
+        school = SchoolQueries().school(pk)
         if school:
             try:
                 updated = school_schema.load(request.data, instance=school, session=session)
-                session.commit()
+                commit()
                 return Response(school_schema.dump(updated))
 
             except ValidationError as err:
@@ -48,11 +48,11 @@ class SchoolViewSet(viewsets.ViewSet):
         return Response(status=status.HTTP_404_NOT_FOUND)
 
     def partial_update(self, request, pk=None):
-        school = session.get(School, pk)
+        school = SchoolQueries().school(pk)
         if school:
             try:
                 updated = school_schema.load(request.data, instance=school, session=session, partial=True)
-                session.commit()
+                commit()
                 return Response(school_schema.dump(updated))
 
             except ValidationError as err:
@@ -61,10 +61,9 @@ class SchoolViewSet(viewsets.ViewSet):
         return Response(status=status.HTTP_404_NOT_FOUND)
 
     def destroy(self, request, pk=None):
-        school = session.get(School, pk)
+        school = SchoolQueries().school(pk)
         if school:
-            session.delete(school)
-            session.commit()
+            SchoolQueries().delete_school(school)
             return Response(status=status.HTTP_204_NO_CONTENT)
 
         return Response(status=status.HTTP_404_NOT_FOUND)
@@ -73,8 +72,7 @@ class SchoolViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['GET'])
     def list_schools(self, request):
         limit = request.GET.get('students')
-        schools = session.query(School.name).outerjoin(Student, Student.school == School.schoolID).group_by(
-            School.schoolID).having(func.count(School.schoolID) >= limit).all()
+        schools = SchoolQueries().schools_by_students(limit)
         if schools:
             result = school_schema.dump(schools, many=True)
             return Response(result)
@@ -84,34 +82,36 @@ class SchoolViewSet(viewsets.ViewSet):
     # 4- All students and there courses for a specific school
     @action(detail=True, methods=['GET'])
     def students_with_courses(self, request, pk=None):
-        school = session.get(School, pk)
-        try:
-            schema = StudentSchema(exclude=['schools', 'school'])
-            result = schema.dump(school.students, many=True)
-            return Response(result)
+        school = SchoolQueries().school(pk)
+        if school:
+            try:
+                schema = StudentSchema(exclude=['schools', 'school'])
+                result = schema.dump(school.students, many=True)
+                return Response(result)
 
-        except ValidationError as err:
-            return Response(err.messages, status=status.HTTP_400_BAD_REQUEST)
+            except ValidationError as err:
+                return Response(err.messages, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(status=status.HTTP_404_NOT_FOUND)
 
 
 class StudentViewSet(viewsets.ViewSet):
     def list(self, request):
-        students = session.query(Student).all()
+        students = StudentQueries().list_students()
         result = student_schema.dump(students, many=True)
         return Response(result)
 
     def create(self, request):
         try:
             student = student_schema.load(request.data, session=session)
-            session.add(student)
-            session.commit()
+            StudentQueries().add_student(student)
             return Response(request.data, status=status.HTTP_201_CREATED)
 
         except ValidationError as err:
             return Response(err.messages, status=status.HTTP_400_BAD_REQUEST)
 
     def retrieve(self, request, pk=None):
-        student = session.get(Student, pk)
+        student = StudentQueries().student(pk)
         if student:
             result = student_schema.dump(student)
             return Response(result)
@@ -119,11 +119,11 @@ class StudentViewSet(viewsets.ViewSet):
         return Response(status=status.HTTP_404_NOT_FOUND)
 
     def update(self, request, pk=None):
-        student = session.get(Student, pk)
+        student = StudentQueries().student(pk)
         if student:
             try:
                 updated = student_schema.load(request.data, instance=student, session=session)
-                session.commit()
+                commit()
                 return Response(student_schema.dump(updated))
 
             except ValidationError as err:
@@ -132,11 +132,11 @@ class StudentViewSet(viewsets.ViewSet):
         return Response(status=status.HTTP_404_NOT_FOUND)
 
     def partial_update(self, request, pk=None):
-        student = session.get(Student, pk)
+        student = StudentQueries().student(pk)
         if student:
             try:
                 updated = student_schema.load(request.data, instance=student, session=session, partial=True)
-                session.commit()
+                commit()
                 return Response(student_schema.dump(updated))
 
             except ValidationError as err:
@@ -145,10 +145,9 @@ class StudentViewSet(viewsets.ViewSet):
         return Response(status=status.HTTP_404_NOT_FOUND)
 
     def destroy(self, request, pk=None):
-        student = session.get(Student, pk)
+        student = StudentQueries().student(pk)
         if student:
-            session.delete(student)
-            session.commit()
+            StudentQueries().delete_student(student)
             return Response(status=status.HTTP_204_NO_CONTENT)
 
         return Response(status=status.HTTP_404_NOT_FOUND)
@@ -156,8 +155,7 @@ class StudentViewSet(viewsets.ViewSet):
     # 1- list courses for specific student
     @action(detail=True, methods=['GET'])
     def lst_courses(self, request, pk=None):
-        courses = session.query(Course).outerjoin(StudentCourse, StudentCourse.c.courseID == Course.courseID).outerjoin(
-            Student, Student.studentID == StudentCourse.c.studentID).where(Student.studentID == pk)
+        courses = CourseQueries().list_courses_by_student(pk)
         if courses:
             try:
                 schema = CourseSchema(exclude=['students'])
@@ -171,22 +169,21 @@ class StudentViewSet(viewsets.ViewSet):
 
 class CourseViewSet(viewsets.ViewSet):
     def list(self, request):
-        courses = session.query(Course).all()
+        courses = CourseQueries().list_courses()
         result = course_schema.dump(courses, many=True)
         return Response(result)
 
     def create(self, request):
         try:
             course = course_schema.load(request.data, session=session)
-            session.add(course)
-            session.commit()
+            CourseQueries().add_course(course)
             return Response(request.data, status=status.HTTP_201_CREATED)
 
         except ValidationError as err:
             return Response(err.messages, status=status.HTTP_400_BAD_REQUEST)
 
     def retrieve(self, request, pk=None):
-        course = session.get(Course, pk)
+        course = CourseQueries().course(pk)
         if course:
             result = course_schema.dump(course)
             return Response(result)
@@ -194,11 +191,11 @@ class CourseViewSet(viewsets.ViewSet):
         return Response(status=status.HTTP_404_NOT_FOUND)
 
     def update(self, request, pk=None):
-        course = session.get(Course, pk)
+        course = CourseQueries().course(pk)
         if course:
             try:
                 updated = course_schema.load(request.data, instance=course, session=session)
-                session.commit()
+                commit()
                 return Response(course_schema.dump(updated))
 
             except ValidationError as err:
@@ -207,11 +204,11 @@ class CourseViewSet(viewsets.ViewSet):
         return Response(status=status.HTTP_404_NOT_FOUND)
 
     def partial_update(self, request, pk=None):
-        course = session.get(Course, pk)
+        course = CourseQueries().course(pk)
         if course:
             try:
                 updated = course_schema.load(request.data, instance=course, session=session, partial=True)
-                session.commit()
+                commit()
                 return Response(course_schema.dump(updated))
 
             except ValidationError as err:
@@ -220,10 +217,9 @@ class CourseViewSet(viewsets.ViewSet):
         return Response(status=status.HTTP_404_NOT_FOUND)
 
     def destroy(self, request, pk=None):
-        course = session.get(Course, pk)
+        course = CourseQueries().course(pk)
         if course:
-            session.delete(course)
-            session.commit()
+            CourseQueries().delete_course(course)
             return Response(status=status.HTTP_204_NO_CONTENT)
 
         return Response(status=status.HTTP_404_NOT_FOUND)
@@ -231,12 +227,9 @@ class CourseViewSet(viewsets.ViewSet):
     # 3- Students that doesn't take a specific course
     @action(detail=True, methods=['GET'])
     def not_in(self, request, pk=None):
-        course = session.get(Course, pk)
+        course = CourseQueries().course(pk)
         if course:
-            students = session.query(Student).outerjoin(StudentCourse,
-                                                        StudentCourse.c.studentID == Student.studentID).outerjoin(
-                Course, and_(Course.courseID == StudentCourse.c.courseID, Course.name == course.name)).group_by(
-                Student.studentID).having(func.count(Course.name) == 0).all()
+            students = StudentQueries().students_not_in_course(course.name)
 
             if students:
                 try:

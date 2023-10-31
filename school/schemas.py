@@ -5,6 +5,7 @@ from marshmallow import fields
 
 class SchoolSchema(SQLAlchemyAutoSchema):
     class Meta:
+        sqla_session = session
         model = School
         include_relationships = True
         load_instance = True
@@ -12,6 +13,7 @@ class SchoolSchema(SQLAlchemyAutoSchema):
 
 class CourseSchema(SQLAlchemyAutoSchema):
     class Meta:
+        sqla_session = session
         model = Course
         include_relationships = True
         load_instance = True
@@ -19,6 +21,7 @@ class CourseSchema(SQLAlchemyAutoSchema):
 
 class StudentSchema(SQLAlchemyAutoSchema):
     class Meta:
+        sqla_session = session
         model = Student
         include_fk = True
         load_instance = True
