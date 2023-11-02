@@ -1,8 +1,9 @@
+import os
+
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status, viewsets
 from marshmallow import ValidationError
-from sqlalchemy import func, and_
 from .compnents import *
 from .schemas import *
 
@@ -87,6 +88,11 @@ class SchoolViewSet(viewsets.ViewSet):
             try:
                 schema = StudentSchema(exclude=['schools', 'school'])
                 result = schema.dump(school.students, many=True)
+                file_name = to_csv(result, school.name.lower())
+                path = os.path.abspath(file_name)
+
+                upload_to_s3(file_name, 'school-bucket-s3', path)
+
                 return Response(result)
 
             except ValidationError as err:

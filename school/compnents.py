@@ -1,6 +1,34 @@
-from sqlalchemy import func, and_
+import os
+import csv
+import boto3
 
+from sqlalchemy import func, and_
 from .models import *
+
+
+def to_csv(data, school):
+    with open(f'{school}.csv', 'w', newline='') as f:
+        writer = csv.writer(f)
+
+        writer.writerow(['studentID', 'name', 'dob', 'courses'])
+
+        for student in data:
+            courses = []
+            for course in student['courses']:
+                courses.append(course['name'])
+
+            courses_str = ', '.join(courses)
+
+            writer.writerow([student['studentID'], student['name'], student['dob'], courses_str])
+
+    return f'{school}.csv'
+
+
+def upload_to_s3(file_name, bucket, path):
+    sess = boto3.Session(profile_name='shamasneh')
+
+    s3_client = sess.client('s3')
+    s3_client.upload_file(path, bucket, f'students/{file_name}')
 
 
 def commit():
